@@ -1,0 +1,181 @@
+<!--
+   https://www.youtube.com/watch?v=QsH8FL0952k&t=232s
+   1:01:17
+   https://www.youtube.com/watch?v=JTIm3ChI-6w
+-->
+<!DOCTYPE html>
+<html lang="zh_TW">
+   <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <title></title>
+      <link rel="stylesheet" href="css/params.css">
+      <link rel="stylesheet" href="css/header.css">
+      <script src="https://code.jquery.com/jquery-3.6.4.js" integrity="sha256-a9jBBRygX1Bh5lt8GZjXDzyOB+bWve9EiO7tROUtj/E=" crossorigin="anonymous"></script>
+      <script type="text/javascript" src="js/utils.js?v=007"></script>
+      <script type="text/javascript" src="js/socket.io.js"></script>
+<style>
+.videos {
+   display: grid;
+   grid-template-columns: 1fr 1fr;
+   gap: 2em;
+}
+.videos .video-player {
+   background: var(--black);
+   width: 100%;
+   height: 300px;
+}
+.videos #user2 {
+   display: none;
+}
+</style>
+   </head>
+<body>
+   <div id="myID"></div>
+   <div class="videos" id="videos">
+      <video class="video-player" id="myself" autoplay playsinline></video>
+      <video class="video-player" id="user2"  autoplay playsinline></video>
+   </div>
+<script>
+   let nil = null;
+   let localStream, remoteStream, peerConnection;
+   let channel = getRoomID();
+   var uid = Math.floor(Math.random()* 10000);
+   var myself = document.querySelector("#myself");
+   var user2 = document.querySelector("#user2");
+   var mymsg = document.querySelector("#myID");
+   var envelope = {"channel": channel, "from": "" + uid, "to": "", "action": "", "msg": ""};
+
+   let createPeerConnection = async(memerID) => {
+      const servers = {
+         iceServer: [{ urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"]}]
+      };
+
+      peerConnection = new RTCPeerConnection(servers);
+      remoteStream = new MediaStream();
+      user2.srcObject = remoteStream;
+      // user2.style.display = "block";
+      myself.classList.add("smallFrame");
+
+      if(!localStream) {
+         localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: false});
+         myself.srcObject = localStream;
+      }
+
+      // 
+      localStream.getTracks().forEach((track) => {
+         peerConnection.addTrack(track, localStream);
+      });
+
+      peerConnection.ontrack = (event) => {
+         event.streams[0].getTracks().forEach((track) => {
+            remoteStream.addTrack(track);
+         });
+      };
+      //
+      peerConnection.onicecandidate = async (event) => {
+         if(event.candidate) {
+            await sendMessageToPeer("candidate", event.candidate, "");
+         }
+      };
+
+   };
+
+   // Step1. 送出 offer 
+   let createOffer = async(memberID)=> {
+      await createPeerConnection(memberID);
+      let offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      await sendMessageToPeer("offer", offer, "");
+   };
+
+   // Step2. 送出Answer 
+   let createAnswer = async(memberID, offer) => {
+      await createPeerConnection(memberID);
+      await peerConnection.setRemoteDescription(offer);
+      let answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+
+      await sendMessageToPeer("answer", answer, memberID)
+   };
+
+   let addAnswer = async(data) => {
+      if(!peerConnection.currentRemoteDescription) {
+         await peerConnection.setRemoteDescription(data.msg);
+      }
+   };
+
+   let init = async()=> {
+      if(!myself) { alert("No video div"); return false; }
+
+      // 設定local攝影機
+      localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: false});
+      myself.srcObject = localStream;
+
+      // index.html?roomID=...
+      ws = new WebSocket("wss://www.justdrink.com.tw/iseeu/joinroom?roomID=" + channel);
+      
+      ws.addEventListener("open", async() => {
+         await ws.send(JSON.stringify({ join: true}));
+         console.log("user " + uid +" login into room " + envelope.channel);
+      });
+    
+      ws.addEventListener("message", async(e) => {
+         const message = JSON.parse(e.data);
+console.log(message);
+         if(message.join) {
+            callUser();
+         }
+      });
+
+      let callUser = () => {
+console.log("Calling other user");
+      };
+/*
+      ws.onopen = async function(evt) {
+         await createOffer("" + uid);
+         mymsg.innerHTML = "#" + uid;
+         console.log("user " + uid +" login into room " + envelope.channel);
+      }
+      ws.onmessage = async function(evt) {
+         if(!evt || !evt.data)  return;
+         var data = JSON.parse(evt.data);
+         data.msg = TransObj(data.msg);
+         if(data.msg.type == "offer") {  // 有人加入
+            if(data.channel == channel) {
+               if(data.from == uid.toString())  return;  // 自己
+               await createAnswer(data.from, data.msg);
+            }
+         } else if(data.action == "answer") {  // 回傳對方的offer
+            await addAnswer(data);
+         } else if(data.action == "candidate") {
+            if(peerConnection) {
+               peerConnection.addIceCandidate(data.msg);
+            }
+         } else if(data.action == "memberLeft") {
+            leaveChannel();
+         }
+      };
+
+      ws.onclose = function(evt) {
+         console.log(uid + " Close ws");
+         ws = null;
+      };
+
+      ws.onerror = function(evt) {
+         // console.log(evt);
+      };
+*/
+   };
+
+   let leaveChannel = async() => {
+      await sendMessageToPeer("leave", envelope, "");
+      // user2.style.display = "none";  // 關閉視窗
+   };
+
+   init();
+   window.addEventListener("beforeunload", leaveChannel);
+</script>
+</body>
+</html>

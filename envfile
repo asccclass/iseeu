@@ -1,0 +1,6 @@
+SystemName=I_See_You
+
+DocumentRoot=www/html
+TemplateRoot=www/template
+
+QRCodePath=www/tmp

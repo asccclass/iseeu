@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh_TW">
+   <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <title>進入聊天室</title>
+      <script src="https://code.jquery.com/jquery-3.6.4.js" integrity="sha256-a9jBBRygX1Bh5lt8GZjXDzyOB+bWve9EiO7tROUtj/E=" crossorigin="anonymous"></script>
+      <link rel="stylesheet" href="css/params.css">
+      <link rel="stylesheet" href="css/header.css">
+   </head>
+<body>
+   <div>
+      <div>
+         <input type="text" value="" id="roomCode" placeholder="請輸入聊天室代碼">
+         <button id="joinRoom" class="">進入聊天室</button>
+      </div>
+      <button id="createRoom" class="">建立聊天室</button>
+   </div>
+<script>
+   document.querySelector("#createRoom").addEventListener("click", async()=> {
+      $.ajax({
+         url: "/iseeu/createroom",
+         method: 'GET',
+         success: (res) => {
+            if(res.roomID) self.location.replace("index.html?roomID=" + res.roomID);
+         }
+      });
+   });
+   document.querySelector("#joinRoom").addEventListener("click", async()=> {
+      var elem = document.querySelector("#roomCode");
+      if(elem.value == "") { alert("請輸入聊天室代碼"); return; }
+      self.location.replace("index.html?roomID=" + elem.value);
+   });
+</script>
+</body>
+</html>
